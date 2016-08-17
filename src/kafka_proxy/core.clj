@@ -46,8 +46,8 @@
      consumer)))
 
 (defn kafka-proxy-handler
-  [{:keys [params]}]
-  (let [consumer (topic-consumer "simple-proxy-topic")      ; TODO get offset, handle other SSE aspects
+  [request]
+  (let [consumer (topic-consumer "simple-proxy-topic")      ; TODO get offset header (Last-Event-ID), handle other SSE aspects
         kafka-ch (chan)]                                    ; TODO add a comment every n secs via a timeout ch to keep the connection alive
     (go-loop []
       (if-let [records (.poll consumer 100)]                ; TODO enable env parameter (>1 && <= 1000)
@@ -67,26 +67,29 @@
       (GET "/kafka-sse" [] kafka-proxy-handler)
       (route/not-found "No such page."))))
 
-;(def server (http/start-server handler {:port 10000}))
 
 
 ;------------------------------------------------------------------------
 ; Short hand for experimentation in the REPL
 ;------------------------------------------------------------------------
 
+; TODO write tests to check the basics
+
 (comment
 
-  (defonce server (http/start-server handler {:port 8080}))
+  ; REPL 1
+  (def server (http/start-server handler {:port 10000}))
 
   (def latest-data-consumer (topic-consumer "simple-proxy-topic"))
 
-  ;  (def ldc-dc (chan))
+  (def ldc-dc (chan))
 
-  ;  (consume-data ldc-dc)
+  (consume-data ldc-dc)
 
-  (topic-into-channel latest-data-consumer kafka-ch)        ; should see no topic entries
+  (topic-into-channel latest-data-consumer ldc-dc)        ; should see no topic entries
 
 
+  ; REPL 2
   (def earliest-data-consumer (topic-consumer "simple-proxy-topic" 0))
 
   (def edc-dc (chan))
@@ -96,6 +99,7 @@
   (topic-into-channel earliest-data-consumer edc-dc)        ; should see all topic entries
 
 
+  ; REPL 1
   (def producer (KafkaProducer. (merge brokers marshalling-options)))
 
   (defn produce
