@@ -35,6 +35,7 @@
    {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}
    (let [group-id {"group.id" (str proxy-group "-" (rand))}
          consumer (KafkaConsumer. (merge brokers marshalling-options subscriber-options group-id))]
+     ; TODO handle connection fail (hystrix?)
 
      (if (= offset CONSUME_LATEST)
        (.subscribe consumer [topic])
@@ -46,12 +47,14 @@
 
 (defn kafka-proxy-handler
   [{:keys [params]}]
-  (let [consumer (topic-consumer "simple-proxy-topic" 0)    ; get offset
-        kafka-ch (chan)]
+  (let [consumer (topic-consumer "simple-proxy-topic")      ; TODO get offset, handle other SSE aspects
+        kafka-ch (chan)]                                    ; TODO add a comment every n secs via a timeout ch to keep the connection alive
     (go-loop []
-      (if-let [records (.poll consumer 100)]
+      (if-let [records (.poll consumer 100)]                ; TODO enable env parameter (>1 && <= 1000)
         (doseq [record records]
-          (>! kafka-ch (str "id: " (.key record) "\ndata:" (.value record) "\n\n"))))
+          (>! kafka-ch (str "id: " (.offset record) "\n"
+                            "retry: 10 \n"                  ; TODO enable env parameter (>1 && <= 30)
+                            "data: key " (.key record) "value" (.value record) "\n\n"))))
       (recur))
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
