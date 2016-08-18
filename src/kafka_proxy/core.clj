@@ -12,18 +12,22 @@
            (org.apache.kafka.clients.consumer KafkaConsumer)
            (org.apache.kafka.common TopicPartition)))
 
-; TODO: env
-(def brokers {"bootstrap.servers" "localhost:9092"})
+(def brokers {"bootstrap.servers" "localhost:9092"})        ; TODO: env
 
-; TODO: use Byte serialization
+
 (def marshalling-options {"key.serializer"     IntegerSerializer
                           "value.serializer"   StringSerializer
                           "key.deserializer"   IntegerDeserializer
-                          "value.deserializer" StringDeserializer})
+                          "value.deserializer" StringDeserializer}) ; TODO: use Byte serialization
+
 
 (def subscriber-options {"enable.auto.commit" "false"})
 
 (def CONSUME_LATEST -1)
+(def CONSUME_POLLING_TIMEOUT 100)                           ; TODO enable env parameter (> 0 && <= 1000)
+(def KEEP_ALIVE_TIMEOUT 30)                                 ; TODO enable env parameter (> 0 && <= 60)
+
+(def CLIENT_RECONNECTION_TIME 10)                           ; TODO enable env parameter (> 0 && <= 30)
 
 (def proxy-group (str "kafka-proxy-" (java.util.UUID/randomUUID)))
 
@@ -47,13 +51,18 @@
 
 (defn kafka-proxy-handler
   [request]
-  (let [consumer (topic-consumer "simple-proxy-topic")      ; TODO get offset header (Last-Event-ID), handle other SSE aspects
-        kafka-ch (chan)]                                    ; TODO add a comment every n secs via a timeout ch to keep the connection alive
+  (let [offset (or (get (:headers request) "last-event-id") CONSUME_LATEST)
+        consumer (topic-consumer "simple-proxy-topic" offset)
+        kafka-ch (chan)]
     (go-loop []
-      (if-let [records (.poll consumer 100)]                ; TODO enable env parameter (>1 && <= 1000)
+      (let [_ (<! (timeout CLIENT_RECONNECTION_TIME))]
+        (>! kafka-ch ":\n")
+        (recur)))
+    (go-loop []
+      (if-let [records (.poll consumer CONSUME_POLLING_TIMEOUT)]
         (doseq [record records]
           (>! kafka-ch (str "id: " (.offset record) "\n"
-                            "retry: 10 \n"                  ; TODO enable env parameter (>1 && <= 30)
+                            "retry: " CLIENT_RECONNECTION_TIME "\n"
                             "data: key " (.key record) "value" (.value record) "\n\n"))))
       (recur))
     {:status  200
@@ -86,7 +95,7 @@
 
   (consume-data ldc-dc)
 
-  (topic-into-channel latest-data-consumer ldc-dc)        ; should see no topic entries
+  (topic-into-channel latest-data-consumer ldc-dc)          ; should see no topic entries
 
 
   ; REPL 2
