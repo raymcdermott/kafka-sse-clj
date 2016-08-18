@@ -25,9 +25,10 @@
 
 (def CONSUME_LATEST -1)
 (def CONSUME_POLLING_TIMEOUT 100)                           ; TODO enable env parameter (> 0 && <= 1000)
-(def KEEP_ALIVE_TIMEOUT 30)                                 ; TODO enable env parameter (> 0 && <= 60)
+(def KEEP_ALIVE_TIMEOUT (* 1000 10))                        ; TODO enable env parameter (> 0 && <= 60)
 
 (def CLIENT_RECONNECTION_TIME 10)                           ; TODO enable env parameter (> 0 && <= 30)
+(def DEFAULT_TOPIC "simple-proxy-topic")
 
 (def proxy-group (str "kafka-proxy-" (java.util.UUID/randomUUID)))
 
@@ -36,7 +37,7 @@
   ([topic]
    (topic-consumer topic CONSUME_LATEST))
   ([topic offset]
-   {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}
+   {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}    ; TODO - test what happens if offset > max topic offset?
    (let [group-id {"group.id" (str proxy-group "-" (rand))}
          consumer (KafkaConsumer. (merge brokers marshalling-options subscriber-options group-id))]
      ; TODO handle connection fail (hystrix?)
@@ -52,16 +53,18 @@
 (defn kafka-proxy-handler
   [request]
   (let [offset (or (get (:headers request) "last-event-id") CONSUME_LATEST)
-        consumer (topic-consumer "simple-proxy-topic" offset)
+        topic (or (get (:params request) "topic") DEFAULT_TOPIC)
+        consumer (topic-consumer topic offset)
         kafka-ch (chan)]
     (go-loop []
-      (let [_ (<! (timeout CLIENT_RECONNECTION_TIME))]
-        (>! kafka-ch ":\n")
+      (let [_ (<! (timeout KEEP_ALIVE_TIMEOUT))]
+        (>! kafka-ch ":\n")                                 ; These bytes are ignored by SSE clients
         (recur)))
     (go-loop []
       (if-let [records (.poll consumer CONSUME_POLLING_TIMEOUT)]
         (doseq [record records]
           (>! kafka-ch (str "id: " (.offset record) "\n"
+                            "event: " topic "\n"
                             "retry: " CLIENT_RECONNECTION_TIME "\n"
                             "data: key " (.key record) "value" (.value record) "\n\n"))))
       (recur))
