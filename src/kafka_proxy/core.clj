@@ -30,6 +30,9 @@
 (def CLIENT_RECONNECTION_TIME 10)                           ; TODO enable env parameter (> 0 && <= 30)
 (def DEFAULT_TOPIC "simple-proxy-topic")
 
+(def DEFAULT_ENDPOINT_PATH "/kafka-sse")
+(def DEFAULT_SSE_CLIENT "/sse")
+
 (def proxy-group (str "kafka-proxy-" (java.util.UUID/randomUUID)))
 
 (defn topic-consumer
@@ -58,7 +61,7 @@
         kafka-ch (chan)]
     (go-loop []
       (let [_ (<! (timeout KEEP_ALIVE_TIMEOUT))]
-        (>! kafka-ch ":\n")                                 ; These bytes are ignored by SSE clients
+        (>! kafka-ch ":\n")                                 ; Ignored by EventSource clients
         (recur)))
     (go-loop []
       (if-let [records (.poll consumer CONSUME_POLLING_TIMEOUT)]
@@ -73,10 +76,33 @@
                "Cache-Control" "no-cache"}
      :body    (s/->source kafka-ch)}))
 
+(defn event-source-client-handler
+  [request]
+  (let [html (str "<!DOCTYPE html><html lang=\"en\">
+        <head>
+        <meta charset=\"UTF-8\">
+        <title>Sample EventSource client</title>
+        </head>
+        <body>
+        <script>
+            var source = new EventSource('kafka-sse');
+            source.onmessage = function(e) {
+              var newElement = document.createElement(\"li\");
+              newElement.innerHTML = \"message: \" + e.data;
+              eventList.appendChild(newElement);
+            }
+        </script>
+        </body></html>")]
+    {:status  200
+     :headers {"Content-Type"  "text/html;charset=UTF-8"
+               "Cache-Control" "no-cache"}
+     :body    html}))
+
 (def handler
   (params/wrap-params
     (compojure/routes
-      (GET "/kafka-sse" [] kafka-proxy-handler)
+      (GET DEFAULT_ENDPOINT_PATH [] kafka-proxy-handler)
+      (GET DEFAULT_SSE_CLIENT [] event-source-client-handler)
       (route/not-found "No such page."))))
 
 
