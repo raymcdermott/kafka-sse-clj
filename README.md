@@ -1,36 +1,32 @@
-# kafka-proxy
+#Purpose
 
-FIXME: description
+A Kafka HTTP Proxy that supports putting and getting data from Kafka using
+- POST for adding data to a topic
+- Server Sent Events to obtain streamed results from a topic
 
-## Installation
+#Implementation
+The proxy is written in Clojure and can be deployed as is via Docker or Heroku
 
-Download from http://example.com/FIXME.
+#Benefits of Clojure
+- Transforms / filters can be provided by a transducer function
+- New data items can be checked against a core.spec
 
-## Usage
+#Output Messages
+Output of the event complies to the eventsource spec and has these semantics:
 
-FIXME: explanation
+- id (item offset in kafka topic)
+- event (the message key)
+- data (the message value)
 
-    $ java -jar kafka-proxy-0.1.0-standalone.jar [args]
+It is essential that messages placed on the Kafka topic comply with these semantics.
 
-## Options
+By default the output will also include
+- retry (milliseconds after a dropped connection, that the client should wait before retry)
 
-FIXME: listing of options this app accepts.
+This can be fine-tuned or turned off via configuration
 
-## Examples
+#Operations
+Environment variables are used for basic configuration and to influence some aspects of its behaviour.
 
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
-
-## License
-
-Copyright © 2016 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+#Testing
+A simple EventSource client is provided for testing purposes
