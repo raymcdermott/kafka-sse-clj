@@ -2,12 +2,12 @@
   (:require [aleph.http :as http]
             [compojure.core :as compojure :refer [GET]]
             [compojure.route :as route]
-            [manifold.stream :as s]
             [ring.middleware.params :as params]
-            [clojure.core.async :as async :refer [>! <! go-loop chan close! timeout]])
+            [manifold.stream :as s]
+            [clojure.core.async :refer [>! <! go-loop chan close! timeout]]
+            [clojure.string :as str])
   (:gen-class)
-  (:import (org.apache.kafka.common.serialization StringSerializer StringDeserializer
-                                                  IntegerSerializer IntegerDeserializer)
+  (:import (org.apache.kafka.common.serialization StringSerializer StringDeserializer)
            (org.apache.kafka.clients.producer KafkaProducer ProducerRecord)
            (org.apache.kafka.clients.consumer KafkaConsumer)
            (org.apache.kafka.common TopicPartition)))
@@ -15,9 +15,9 @@
 (def brokers {"bootstrap.servers" "localhost:9092"})        ; TODO: env
 
 
-(def marshalling-options {"key.serializer"     IntegerSerializer
+(def marshalling-options {"key.serializer"     StringSerializer
                           "value.serializer"   StringSerializer
-                          "key.deserializer"   IntegerDeserializer
+                          "key.deserializer"   StringDeserializer
                           "value.deserializer" StringDeserializer}) ; TODO: use Byte serialization
 
 
@@ -25,84 +25,74 @@
 
 (def CONSUME_LATEST -1)
 (def CONSUME_POLLING_TIMEOUT 100)                           ; TODO enable env parameter (> 0 && <= 1000)
-(def KEEP_ALIVE_TIMEOUT (* 1000 10))                        ; TODO enable env parameter (> 0 && <= 60)
+(def CONSUME_DEFAULT_TOPIC "simple-proxy-topic")            ; TODO enable env parameter
+(def CONSUME_DEFAULT_BUFFER 512)                            ; TODO enable env parameter (> 0 && <=1024)
 
-(def CLIENT_RECONNECTION_TIME 10)                           ; TODO enable env parameter (> 0 && <= 30)
-(def DEFAULT_TOPIC "simple-proxy-topic")
-
-(def DEFAULT_ENDPOINT_PATH "/kafka-sse")
-(def DEFAULT_SSE_CLIENT "/sse")
+(def CLIENT_KEEP_ALIVE_TIMEOUT (* 20 1000))                 ; TODO enable env parameter (> 0 && <= 60)
+(def CLIENT_RECONNECTION_TIME (* 3 1000))                   ; TODO enable env parameter (> 0 && <= 30)
 
 (def proxy-group (str "kafka-proxy-" (java.util.UUID/randomUUID)))
 
 (defn topic-consumer
   "Obtain an appropriately positioned kafka consumer that is ready to be polled"
-  ([topic]
-   (topic-consumer topic CONSUME_LATEST))
-  ([topic offset]
-   {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}    ; TODO - test what happens if offset > max topic offset?
-   (let [group-id {"group.id" (str proxy-group "-" (rand))}
-         consumer (KafkaConsumer. (merge brokers marshalling-options subscriber-options group-id))]
-     ; TODO handle connection fail (hystrix?)
+  [topic offset]
+  {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}
+  (let [group-id {"group.id" (str proxy-group "-" (rand))}
+        consumer (KafkaConsumer. (merge brokers marshalling-options subscriber-options group-id))]
+    ; TODO handle connection fail (hystrix?)
 
-     (if (= offset CONSUME_LATEST)
-       (.subscribe consumer [topic])
-       (let [partition (TopicPartition. topic 0)]
-         (.assign consumer [partition])
-         (.seek consumer partition offset)))
+    (if (= offset CONSUME_LATEST)
+      (.subscribe consumer [topic])
+      (let [partition (TopicPartition. topic 0)]
+        (.assign consumer [partition])
+        (.seek consumer partition offset)))
 
-     consumer)))
+    consumer))
+
+(defn sse-data [kafka-record]
+  (str "id: " (.offset kafka-record) "\n"
+       "event: " (.key kafka-record) "\n"
+       "retry: " CLIENT_RECONNECTION_TIME "\n"
+       "data: " (.value kafka-record) "\n\n"))
+
+(defn matching-event
+  "Filter event types using one or more comma seperated regexes"
+  [client-event-filter kafka-record]
+  (println (str "Filter: " client-event-filter " Event:" (.key kafka-record)))
+  (let [rxs (map #(re-pattern %) (str/split client-event-filter #","))
+        event (.key kafka-record)
+        found (mapcat #(re-find % event) rxs)]
+    (println (str "Filter: " client-event-filter " Results:" (count found)))
+    (> (count found) 0)))
 
 (defn kafka-proxy-handler
+  "Stream SSE data from the Kafka topic"
   [request]
   (let [offset (or (get (:headers request) "last-event-id") CONSUME_LATEST)
-        topic (or (get (:params request) "topic") DEFAULT_TOPIC)
+        topic (or (get (:params request) "topic") CONSUME_DEFAULT_TOPIC)
+        client-filter (or (get (:params request) "filter") ".*")
         consumer (topic-consumer topic offset)
         kafka-ch (chan)]
     (go-loop []
-      (let [_ (<! (timeout KEEP_ALIVE_TIMEOUT))]
-        (>! kafka-ch ":\n")                                 ; Ignored by EventSource clients
+      (let [_ (<! (timeout CLIENT_KEEP_ALIVE_TIMEOUT))]
+        (>! kafka-ch ":\n")
         (recur)))
     (go-loop []
       (if-let [records (.poll consumer CONSUME_POLLING_TIMEOUT)]
         (doseq [record records]
-          (>! kafka-ch (str "id: " (.offset record) "\n"
-                            "event: " topic "\n"
-                            "retry: " CLIENT_RECONNECTION_TIME "\n"
-                            "data: key " (.key record) "value" (.value record) "\n\n"))))
+          (if (matching-event client-filter record)
+            (>! kafka-ch (sse-data record)))))
       (recur))
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}
      :body    (s/->source kafka-ch)}))
 
-(defn event-source-client-handler
-  [request]
-  (let [html (str "<!DOCTYPE html><html lang=\"en\">
-        <head>
-        <meta charset=\"UTF-8\">
-        <title>Sample EventSource client</title>
-        </head>
-        <body>
-        <script>
-            var source = new EventSource('kafka-sse');
-            source.onmessage = function(e) {
-              var newElement = document.createElement(\"li\");
-              newElement.innerHTML = \"message: \" + e.data;
-              eventList.appendChild(newElement);
-            }
-        </script>
-        </body></html>")]
-    {:status  200
-     :headers {"Content-Type"  "text/html;charset=UTF-8"
-               "Cache-Control" "no-cache"}
-     :body    html}))
-
 (def handler
   (params/wrap-params
     (compojure/routes
-      (GET DEFAULT_ENDPOINT_PATH [] kafka-proxy-handler)
-      (GET DEFAULT_SSE_CLIENT [] event-source-client-handler)
+      (GET "/kafka-sse" [] kafka-proxy-handler)
+      ; TODO POST for sending on the topic
       (route/not-found "No such page."))))
 
 
@@ -115,29 +105,8 @@
 
 (comment
 
-  ; REPL 1
   (def server (http/start-server handler {:port 10000}))
 
-  (def latest-data-consumer (topic-consumer "simple-proxy-topic"))
-
-  (def ldc-dc (chan))
-
-  (consume-data ldc-dc)
-
-  (topic-into-channel latest-data-consumer ldc-dc)          ; should see no topic entries
-
-
-  ; REPL 2
-  (def earliest-data-consumer (topic-consumer "simple-proxy-topic" 0))
-
-  (def edc-dc (chan))
-
-  (consume-data edc-dc)
-
-  (topic-into-channel earliest-data-consumer edc-dc)        ; should see all topic entries
-
-
-  ; REPL 1
   (def producer (KafkaProducer. (merge brokers marshalling-options)))
 
   (defn produce
@@ -145,9 +114,7 @@
     (.send producer (ProducerRecord. topic k v)))
 
   (let [rando (rand-int 1000)]
-    (produce "simple-proxy-topic" rando (str "Message for KEY: " rando)))
-
-  ; both consumers should report a new item
+    (produce "simple-proxy-topic" "rando-event" (str "{\"id\" " rando " \"message\" \"Hello SSE\"}")))
 
   )
 
