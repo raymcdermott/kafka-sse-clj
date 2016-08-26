@@ -12,14 +12,14 @@
            (org.apache.kafka.clients.consumer KafkaConsumer)
            (org.apache.kafka.common TopicPartition)))
 
-(def brokers {"bootstrap.servers" "localhost:9092"})        ; TODO: env
-
+; TODO Heroku deploy: connect using template from https://github.com/heroku/heroku-kafka-demo-java
+; make a broker configuration namespace
+(def brokers {"bootstrap.servers" "localhost:9092"})
 
 (def marshalling-options {"key.serializer"     StringSerializer
                           "value.serializer"   StringSerializer
                           "key.deserializer"   StringDeserializer
-                          "value.deserializer" StringDeserializer}) ; TODO: use Byte serialization
-
+                          "value.deserializer" StringDeserializer})
 
 (def subscriber-options {"enable.auto.commit" "false"})
 
@@ -68,7 +68,7 @@
   [request]
   (let [offset (or (get (:headers request) "last-event-id") CONSUME_LATEST)
         topic (or (get (:params request) "topic") CONSUME_DEFAULT_TOPIC)
-        client-filter (or (get (:params request) "filter") ".*")
+        client-filter (or (get (:params request) "filter[event]") ".*")
         consumer (topic-consumer topic offset)
         kafka-ch (chan CONSUME_DEFAULT_BUFFER)]
     (go-loop []
