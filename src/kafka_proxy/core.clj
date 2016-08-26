@@ -40,6 +40,7 @@
   (let [group-id {"group.id" (str proxy-group "-" (rand))}
         consumer (KafkaConsumer. (merge brokers marshalling-options subscriber-options group-id))]
     ; TODO handle connection fail (hystrix?)
+    (clojure.pprint/pprint consumer)
 
     (if (= offset CONSUME_LATEST)
       (.subscribe consumer [topic])
@@ -57,12 +58,9 @@
 
 (defn matching-event
   "Filter event types using one or more comma seperated regexes"
-  [client-event-filter kafka-record]
-  (println (str "Filter: " client-event-filter " Event:" (.key kafka-record)))
-  (let [rxs (map #(re-pattern %) (str/split client-event-filter #","))
-        event (.key kafka-record)
-        found (mapcat #(re-find % event) rxs)]
-    (println (str "Filter: " client-event-filter " Results:" (count found)))
+  [event-filter event-name]
+  (let [rxs (map #(re-pattern %) (str/split event-filter #","))
+        found (filter #(re-find % event-name) rxs)]
     (> (count found) 0)))
 
 (defn kafka-proxy-handler
@@ -72,15 +70,16 @@
         topic (or (get (:params request) "topic") CONSUME_DEFAULT_TOPIC)
         client-filter (or (get (:params request) "filter") ".*")
         consumer (topic-consumer topic offset)
-        kafka-ch (chan)]
+        kafka-ch (chan CONSUME_DEFAULT_BUFFER)]
     (go-loop []
       (let [_ (<! (timeout CLIENT_KEEP_ALIVE_TIMEOUT))]
         (>! kafka-ch ":\n")
         (recur)))
     (go-loop []
+      ; TODO handle exceptions from .poll
       (if-let [records (.poll consumer CONSUME_POLLING_TIMEOUT)]
         (doseq [record records]
-          (if (matching-event client-filter record)
+          (if (matching-event client-filter (.key record))
             (>! kafka-ch (sse-data record)))))
       (recur))
     {:status  200
