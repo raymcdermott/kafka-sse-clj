@@ -34,7 +34,8 @@ working on it with embedded K / ZK
 
 Example (using aleph)
 
-```(defn sse-handler-using-defaults
+```clojure
+(defn sse-handler-using-defaults
   "Stream SSE data from the Kafka topic"
   [request]
   (let [topic (get (:params request) "topic" TOPIC)
@@ -49,7 +50,8 @@ Example (using aleph)
   (params/wrap-params
     (compojure/routes
       (GET "/kafka-sse" [] sse-handler-using-defaults)
-      (route/not-found "No such page."))))```
+      (route/not-found "No such page."))))
+```
 
 
 
