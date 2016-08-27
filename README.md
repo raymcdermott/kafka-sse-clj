@@ -32,13 +32,13 @@ Environment variables are used for basic configuration and to influence some asp
 
 working on it with embedded K / ZK
 
-Example (using aleph)
+#Example (using aleph)
 
 ```clojure
 (defn sse-handler-using-defaults
   "Stream SSE data from the Kafka topic"
   [request]
-  (let [topic (get (:params request) "topic" TOPIC)
+  (let [topic (get (:params request) "topic" "default-topic")
         ch (sse/kafka->sse-handler-ch request topic)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
