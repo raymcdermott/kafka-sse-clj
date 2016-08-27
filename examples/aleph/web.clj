@@ -14,7 +14,7 @@
   "Stream SSE data from the Kafka topic"
   [request]
   (let [topic (or (get (:params request) "topic") TOPIC)
-        ch (sse/kafka->sse-handler-ch request topic)]
+        ch (sse/kafka->sse-ch request topic)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}

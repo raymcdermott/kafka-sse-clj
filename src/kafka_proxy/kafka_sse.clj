@@ -25,13 +25,13 @@
         found (filter #(re-find % name) rxs)]
     (> (count found) 0)))
 
-(defn kafka->sse-handler-ch
+(defn kafka->sse-ch
   "Provide a channel that produces SSE data from the Kafka consumer"
   ([request topic]
    (let [offset (or (get (:headers request) "last-event-id") kafka/CONSUME_LATEST)
          event-filter (or (get (:params request) "filter[event]") ".*")
          consumer (kafka/consumer topic offset)]
-     (kafka->sse-handler-ch name-matches? event-filter consumer-record->sse consumer)))
+     (kafka->sse-ch name-matches? event-filter consumer-record->sse consumer)))
 
   ([event-filter-fn event-filter sse-mapping-fn consumer]
    (let [timeout-ch (chan)
