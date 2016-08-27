@@ -10,7 +10,9 @@
                  [environ "1.1.0"]
                  [org.apache.kafka/kafka_2.10 "0.10.0.1"]
                  [org.apache.kafka/kafka-clients "0.10.0.1"]]
-  :main ^:skip-aot kafka-proxy.core
+  :dev-dependencies [[ymilky/franzy-embedded "0.0.1"]
+                     [ymilky/travel-zoo "0.0.2"]]
+  ;  :main ^:skip-aot kafka-proxy.core
   :pedantic? :warn
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

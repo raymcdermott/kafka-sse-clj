@@ -1,46 +1,51 @@
 (ns kafka-proxy.kafka-sse
-  (:require [manifold.stream :as s]
-            [clojure.core.async :as async :refer [>! <! go-loop chan close! timeout]]
+  (:require [clojure.core.async :as async :refer [>! <! go-loop chan close! timeout]]
             [clojure.string :as str]
-            [kafka-proxy.config :as config]))
+            [kafka-proxy.config :as config]
+            [kafka-proxy.kafka :as kafka])
+  (:import (org.apache.kafka.clients.consumer ConsumerRecord)))
 
-(def ^:private POLL_TIMEOUT (config/env-or-default :sse-proxy-poll-timeeout 100))
+(def ^:private POLL_TIMEOUT_MILLIS (config/env-or-default :sse-proxy-poll-timeeout-millis 100))
 
 (def ^:private BUFFER_SIZE (config/env-or-default :sse-proxy-buffer-size 512))
 
-(def ^:private KEEP_ALIVE (config/env-or-default :sse-proxy-keep-alive (* 20 1000)))
+(def ^:private KEEP_ALIVE_MILLIS (config/env-or-default :sse-proxy-keep-alive-millis (* 20 1000)))
 
-(def ^:private RETRY (config/env-or-default :sse-proxy-retry (* 5 1000)))
+(defn consumer-record->sse
+  "Kakfa Java API ConsumerRecord to the standard SSE data record format"
+  [consumer-record]
+  (str "id: " (.offset consumer-record) "\n"
+       "event: " (.key consumer-record) "\n"
+       "data: " (.value consumer-record) "\n\n"))
 
-(defn kafka-record->sse [kafka-record]
-  (str "id: " (.offset kafka-record) "\n"
-       "event: " (.key kafka-record) "\n"
-       "retry: " RETRY "\n"
-       "data: " (.value kafka-record) "\n\n"))
-
-(defn event-name-filter
-  "Filter event types using one or more comma seperated regexes"
-  [event-filter event-name]
-  (let [rxs (map #(re-pattern %) (str/split event-filter #","))
-        found (filter #(re-find % event-name) rxs)]
+(defn name-matches?
+  "Match name with the regexes in a comma seperated string"
+  [regex-str name]
+  (let [rxs (map #(re-pattern %) (str/split regex-str #","))
+        found (filter #(re-find % name) rxs)]
     (> (count found) 0)))
 
-(defn kafka->sse-handler
-  "Stream SSE data from the Kafka consumer"
-  [event-filter consumer]
-  (let [timeout-ch (chan)
-        kafka-ch (chan BUFFER_SIZE (comp (filter #(event-name-filter event-filter (.key %)))
-                                         (map kafka-record->sse)))]
-    (go-loop []
-      (let [_ (<! (timeout KEEP_ALIVE))]
-        (>! timeout-ch ":\n")
-        (recur)))
-    (go-loop []
-      (if-let [records (.poll consumer POLL_TIMEOUT)]
-        (doseq [record records]
-          (>! kafka-ch record)))
-      (recur))
-    {:status  200
-     :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
-               "Cache-Control" "no-cache"}
-     :body    (s/->source (async/merge [kafka-ch timeout-ch]))}))
+(defn kafka->sse-handler-ch
+  "Provide a channel that produces SSE data from the Kafka consumer"
+  ([request topic]
+   (let [offset (or (get (:headers request) "last-event-id") kafka/CONSUME_LATEST)
+         event-filter (or (get (:params request) "filter[event]") ".*")
+         consumer (kafka/consumer topic offset)]
+     (kafka->sse-handler-ch name-matches? event-filter consumer-record->sse consumer)))
+
+  ([event-filter-fn event-filter sse-mapping-fn consumer]
+   (let [timeout-ch (chan)
+         kafka-ch (chan BUFFER_SIZE (comp (filter #(event-filter-fn event-filter (.key %)))
+                                          (map sse-mapping-fn)))]
+     (go-loop []
+       (let [_ (<! (timeout KEEP_ALIVE_MILLIS))]
+         (>! timeout-ch ":\n")
+         (recur)))
+
+     (go-loop []
+       (if-let [records (.poll consumer POLL_TIMEOUT_MILLIS)]
+         (doseq [record records]
+           (>! kafka-ch record)))
+       (recur))
+
+     (async/merge [kafka-ch timeout-ch]))))

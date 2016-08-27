@@ -1,15 +1,14 @@
 #Purpose
 
-A Kafka HTTP Proxy that supports putting and getting data from Kafka using
-- POST for adding data to a topic
-- Server Sent Events to obtain streamed results from a topic
+A minimal HTTP lib that supports Server-Sent events from Kafka
 
 #Implementation
-The proxy is written in Clojure and can be deployed as is via Docker or Heroku
+The proxy is written in Clojure and can be deployed via Docker or Heroku
 
 #Benefits of Clojure
 - Transforms / filters can be provided by a transducer function
 - New data items can be checked against a core.spec
+- High degree of composability on top of some sane defaults
 
 #Output Messages
 Output of the event complies to the eventsource spec and has these semantics:
@@ -18,15 +17,39 @@ Output of the event complies to the eventsource spec and has these semantics:
 - event (the message key)
 - data (the message value)
 
-It is essential that messages placed on the Kafka topic comply with these semantics.
+To use the defaults, messages placed on the Kafka topic must comply with these semantics.
 
-By default the output will also include
-- retry (milliseconds after a dropped connection, that the client should wait before retry)
+#Composable
+Hopefully the defaults will be useful for some people.
 
-This can be fine-tuned or turned off via configuration
+If not, it's fully composable to allow you to vary message semantics, filters and output with functions.
+
 
 #Operations
 Environment variables are used for basic configuration and to influence some aspects of its behaviour.
 
 #Testing
-A simple EventSource client is provided for testing purposes
+
+working on it with embedded K / ZK
+
+Example (using aleph)
+
+```(defn sse-handler-using-defaults
+  "Stream SSE data from the Kafka topic"
+  [request]
+  (let [topic (get (:params request) "topic" TOPIC)
+        ch (sse/kafka->sse-handler-ch request topic)]
+    {:status  200
+     :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
+               "Cache-Control" "no-cache"}
+     :body    (s/->source ch)}))
+
+
+(def handler
+  (params/wrap-params
+    (compojure/routes
+      (GET "/kafka-sse" [] sse-handler-using-defaults)
+      (route/not-found "No such page."))))```
+
+
+
