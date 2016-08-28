@@ -102,10 +102,6 @@ Of course you can reuse one of the provided helper functions (`name-matches` and
 #Operations
 The table shows the supported environment variables and defaults.
 
-(def ^:private brokers-from-env (if-let [u (env :sse-proxy-kafka-broker-url)]
-                                  {"bootstrap.servers" u}))
-
-
 | Environment Variable | Meaning | Default |
 | ---------------------| ------- | --------|
 | SSE_PROXY_KAFKA_BROKER_URL  | List of brokers | localhost:9092 |
@@ -145,6 +141,6 @@ working on it with embedded K / ZK
 
 #Other Kafka libraries for Clojure
 
-Kafka consumers are complex and there are several general purpose Clojure libraries to provide access to all of those functions in idiomatic Clojure and from which I have stolen ideas and code.
+Kafka consumers are generally complex and there are several Clojure libraries to provide access to all of those functions in idiomatic Clojure and from which I have stolen ideas and code.
  
 I like and recommend Franzy https://github.com/ymilky/franzy
