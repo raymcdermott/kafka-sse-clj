@@ -8,17 +8,13 @@ The function `kafka->sse-ch` will return a channel that has mapping from the dat
 
 You can use that channel in a variety of web servers and I have provided a simple example using `Aleph` and `Compojure`.
 
-The function has different arities to support composability.
-
-The simplest form is
-
 ```clojure
 kafka->sse-ch [request topic]
 ```
 
 In this form you provide the `ring request` and the name of the topic from which to consume.
 
-The default form of the function supports simple filtering on event name:
+The function will use the `filter[event]` request parameter to perform filtering on event name:
 
 ```
 http://server-name/sse?filter[event]=customer
@@ -28,13 +24,6 @@ Regular expressions are also supported in a comma separated list:
 
 ```
 http://server-name/sse?filter[event]=customer,product.*
-```
-
-By default an SSE comment will be sent every few seconds to maintain the connection.
-
-
-```clojure
-kafka->sse-ch [event-filter-fn event-filter sse-mapping-fn consumer]
 ```
 
 #Output Messages
@@ -56,6 +45,17 @@ data: {"id" 964 "message" "Hello SSE"}
 
 Of course, to use these defaults, messages placed on the Kafka topic must comply with these semantics.
 
+#Further composition
+
+A transducer can be provided to modify how the data on the channel is processed.
+
+```clojure
+kafka->sse-ch [request topic transducer]
+```
+
+This means that you can use the same core function but provide your own filtering and mapping.
+
+
 #Operations
 The table shows the supported environment variables and defaults.
 
@@ -63,6 +63,10 @@ The table shows the supported environment variables and defaults.
 | ---------------------| ------- | --------|
 | Content Cell         | Content | default |
 | Content Cell         | Content | default |
+
+#Keep Alive
+By default an SSE comment will be sent every few seconds to maintain the connection.
+
 
 #Testing
 

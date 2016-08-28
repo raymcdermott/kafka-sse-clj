@@ -2,8 +2,7 @@
   (:require [clojure.core.async :as async :refer [>! <! go-loop chan close! timeout]]
             [clojure.string :as str]
             [kafka-proxy.config :as config]
-            [kafka-proxy.kafka :as kafka])
-  (:import (org.apache.kafka.clients.consumer ConsumerRecord)))
+            [kafka-proxy.kafka :as kafka]))
 
 (def ^:private POLL_TIMEOUT_MILLIS (config/env-or-default :sse-proxy-poll-timeeout-millis 100))
 
@@ -26,17 +25,17 @@
     (> (count found) 0)))
 
 (defn kafka->sse-ch
-  "Provide a channel that produces SSE data from the Kafka consumer"
+  "Creates a channel that produces SSE data from the Kafka consumer"
   ([request topic]
-   (let [offset (or (get (:headers request) "last-event-id") kafka/CONSUME_LATEST)
-         event-filter (or (get (:params request) "filter[event]") ".*")
-         consumer (kafka/consumer topic offset)]
-     (kafka->sse-ch name-matches? event-filter consumer-record->sse consumer)))
+   (let [event-filter (or (get (:params request) "filter[event]") ".*")]
+     (kafka->sse-ch request topic (comp (filter #(name-matches? event-filter (.key %)))
+                                        (map consumer-record->sse)))))
 
-  ([event-filter-fn event-filter sse-mapping-fn consumer]
-   (let [timeout-ch (chan)
-         kafka-ch (chan BUFFER_SIZE (comp (filter #(event-filter-fn event-filter (.key %)))
-                                          (map sse-mapping-fn)))]
+  ([request topic transducer]
+   (let [offset (or (get (:headers request) "last-event-id") kafka/CONSUME_LATEST)
+         consumer (kafka/consumer topic offset)
+         timeout-ch (chan)
+         kafka-ch (chan BUFFER_SIZE transducer)]
      (go-loop []
        (let [_ (<! (timeout KEEP_ALIVE_MILLIS))]
          (>! timeout-ch ":\n")
