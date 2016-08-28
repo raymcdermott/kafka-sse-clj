@@ -1,32 +1,25 @@
 #Purpose
 
-A minimal approach (a small, single function) to support Server-Sent events from Kafka using a `ring` compliant web server.
+A minimal approach (three functions) to support Server-Sent events from Kafka using a `ring` compliant web server.
 
 The defaults can be tweaked by code or configuration.
 
-The function `kafka->sse-ch` will return a channel that has mapping from the data on a Kafka channel to SSE.
-
-You can use that channel in a variety of web servers and I have provided a simple example using `Aleph` and `Compojure`.
+#Default-based approach (one function)
 
 ```clojure
-kafka->sse-ch [request topic]
+kafka->sse-ch [request topic-name]
 ```
 
-In this form you provide the `ring request` and the name of the topic from which to consume.
+The function returns a core.async channel that 
+- maps from the data on a Kafka channel to the HTML5 EventSource format
+- emits SSE comments every 5 seconds to maintain the connection
 
-The function will use the `filter[event]` request parameter to perform filtering on event name:
+You can use that channel to stream data out with any web server that supports core.async channels.
+ 
+I have provided an example using `Aleph` and `Compojure`.
 
-```
-http://server-name/sse?filter[event]=customer
-```
+#Message format
 
-Regular expressions are also supported in a comma separated list:
-
-```
-http://server-name/sse?filter[event]=customer,product.*
-```
-
-#Output Messages
 The default output of the channel complies to the HTML5 `EventSource` spec and has these semantics:
 
 - id (item offset in kafka topic)
@@ -43,43 +36,98 @@ event: product-campaign
 data: {"id" 964 "message" "Hello SSE"}
 ```
 
-Of course, to use these defaults, messages placed on the Kafka topic must comply with these semantics.
+The data in the examples is JSON but it could be any string.
 
-#Further composition
+Of course, to use these defaults, messages placed on the Kafka topic must conform to these semantics.
 
-A transducer can be provided to modify how the data on the channel is processed.
+#Filtering
 
-```clojure
-kafka->sse-ch [request topic transducer]
+The channel is unfiltered by default but supports a request parameter `filter[event]` to filter responses by matching on event name:
+
+```
+http://server-name/sse?filter[event]=customer
 ```
 
-This means that you can use the same core function but provide your own filtering and mapping.
+Regular expressions are also supported in a comma separated list:
 
+```
+http://server-name/sse?filter[event]=customer,product.*
+```
+
+
+#Composition approach (two functions)
+
+##Hand assembly
+
+```clojure
+kafka-consumer->sse-ch [consumer transducer]
+```
+
+This function takes a Kafka consumer and transducer to assemble how the data on the channel is processed.
+
+###Kafka Consumer
+
+```clojure
+sse-consumer [topic offset]
+sse-consumer [topic offset options]
+sse-consumer [topic offset options brokers]
+sse-consumer [topic offset options brokers marshallers]
+```
+
+The second function is to enable the safe construction of a Kafka consumer for SSE purposes.
+
+I make this a clear distinction because Kafka has mature support for maintaining positions in the stream for event stream processors.
+
+We do not need that degree of sophistication for SSE - we assume clients want to read from one of two places on the Kafka topic
+- the latest position (the default)
+- a specific offset to enable consumption of any missing records during a network outage
+
+In the latter case, EventSource clients send the `Last-Event-Id` header.
+
+Providing the Kafka offset as the event id keeps it simple.
+
+This consumer enables you to provide or as much or as little config as you need.
+
+###core.async transducer
+
+```clojure
+(kafka-consumer->sse-ch consumer (comp (filter #(name-matches? event-filter (.key %)))
+                                           (map consumer-record->sse)))
+```
+
+This is the code used to create the default transducer. 
+
+Of course you can reuse one of the provided helper functions (`name-matches` and `consumer-record->sse`) or provide your own.
 
 #Operations
 The table shows the supported environment variables and defaults.
 
+(def ^:private brokers-from-env (if-let [u (env :sse-proxy-kafka-broker-url)]
+                                  {"bootstrap.servers" u}))
+
+
 | Environment Variable | Meaning | Default |
 | ---------------------| ------- | --------|
-| Content Cell         | Content | default |
-| Content Cell         | Content | default |
-
-#Keep Alive
-By default an SSE comment will be sent every few seconds to maintain the connection.
+| SSE_PROXY_KAFKA_BROKER_URL  | List of brokers | localhost:9092 |
+| SSE_PROXY_POLL_TIMEOUT_MILLIS  | Max time in ms for each poll on Kafka | 100 |
+| SSE_PROXY_BUFFER_SIZE          | Size the async.core channel buffer | 512 |
+| SSE_PROXY_KEEP_ALIVE_MILLIS    | Interval in ms between emitting SSE comments | 5000 |
 
 
 #Testing
 
 working on it with embedded K / ZK
 
-#Example (using aleph)
+#Example (using Aleph and Compojure)
 
 ```clojure
+(def ^:private TOPIC (config/env-or-default :sse-proxy-topic "simple-proxy-topic"))
+
 (defn sse-handler-using-defaults
   "Stream SSE data from the Kafka topic"
   [request]
-  (let [topic (get (:params request) "topic" "default-topic")
-        ch (sse/kafka->sse-ch request topic)]
+  (let [topic-name (get (:params request) "topic" TOPIC)
+        ch (sse/kafka->sse-ch request topic-name)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}
@@ -95,3 +143,8 @@ working on it with embedded K / ZK
 
 
 
+#Other Kafka libraries for Clojure
+
+Kafka consumers are complex and there are several general purpose Clojure libraries to provide access to all of those functions in idiomatic Clojure and from which I have stolen ideas and code.
+ 
+I like and recommend Franzy https://github.com/ymilky/franzy

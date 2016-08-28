@@ -7,8 +7,8 @@
 
 (def ^:private local-brokers {"bootstrap.servers" "localhost:9092"})
 
-(def ^:private brokers-from-env (and (env :kafka-proxy-broker-url)
-                                     {"bootstrap.servers" (env :kafka-proxy-broker-url)}))
+(def ^:private brokers-from-env (if-let [u (env :sse-proxy-kafka-broker-url)]
+                                  {"bootstrap.servers" u}))
 
 (def ^:private kafka-brokers (or brokers-from-env local-brokers))
 
@@ -23,16 +23,16 @@
 
 (def CONSUME_LATEST -1)
 
-(defn consumer
+(defn sse-consumer
   "Obtain an appropriately positioned kafka consumer that is ready to be polled"
   ([topic offset]
-   (consumer topic offset autocommit-config))
+   (sse-consumer topic offset autocommit-config))
 
   ([topic offset options]
-   (consumer topic offset options kafka-brokers))
+   (sse-consumer topic offset options kafka-brokers))
 
   ([topic offset options brokers]
-   (consumer topic offset options brokers marshalling-config))
+   (sse-consumer topic offset options brokers marshalling-config))
 
   ([topic offset options brokers marshallers]
    {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}

@@ -4,14 +4,14 @@
             [kafka-proxy.config :as config]
             [kafka-proxy.kafka :as kafka]))
 
-(def ^:private POLL_TIMEOUT_MILLIS (config/env-or-default :sse-proxy-poll-timeeout-millis 100))
+(def ^:private poll-timeout-millis (config/env-or-default :sse-proxy-poll-timeout-millis 100))
 
-(def ^:private BUFFER_SIZE (config/env-or-default :sse-proxy-buffer-size 512))
+(def ^:private buffer-size (config/env-or-default :sse-proxy-buffer-size 512))
 
-(def ^:private KEEP_ALIVE_MILLIS (config/env-or-default :sse-proxy-keep-alive-millis (* 20 1000)))
+(def ^:private keep-alive-millis (config/env-or-default :sse-proxy-keep-alive-millis (* 5 1000)))
 
 (defn consumer-record->sse
-  "Kakfa Java API ConsumerRecord to the standard SSE data record format"
+  "Convert a Kakfa Java API ConsumerRecord to the HTML5 EventSource format"
   [consumer-record]
   (str "id: " (.offset consumer-record) "\n"
        "event: " (.key consumer-record) "\n"
@@ -24,27 +24,29 @@
         found (filter #(re-find % name) rxs)]
     (> (count found) 0)))
 
+(defn kafka-consumer->sse-ch
+  [consumer transducer]
+  (let [keep-alive-ch (chan)
+        kafka-ch (chan buffer-size transducer)]
+
+    (go-loop []
+      (let [_ (<! (timeout keep-alive-millis))]
+        (>! keep-alive-ch ":\n")
+        (recur)))
+
+    (go-loop []
+      (if-let [records (.poll consumer poll-timeout-millis)]
+        (doseq [record records]
+          (>! kafka-ch record)))
+      (recur))
+
+    (async/merge [kafka-ch keep-alive-ch])))
+
 (defn kafka->sse-ch
-  "Creates a channel that produces SSE data from the Kafka consumer"
-  ([request topic]
-   (let [event-filter (or (get (:params request) "filter[event]") ".*")]
-     (kafka->sse-ch request topic (comp (filter #(name-matches? event-filter (.key %)))
-                                        (map consumer-record->sse)))))
-
-  ([request topic transducer]
-   (let [offset (or (get (:headers request) "last-event-id") kafka/CONSUME_LATEST)
-         consumer (kafka/consumer topic offset)
-         timeout-ch (chan)
-         kafka-ch (chan BUFFER_SIZE transducer)]
-     (go-loop []
-       (let [_ (<! (timeout KEEP_ALIVE_MILLIS))]
-         (>! timeout-ch ":\n")
-         (recur)))
-
-     (go-loop []
-       (if-let [records (.poll consumer POLL_TIMEOUT_MILLIS)]
-         (doseq [record records]
-           (>! kafka-ch record)))
-       (recur))
-
-     (async/merge [kafka-ch timeout-ch]))))
+  "Creates a channel that filters and maps data from a Kafka topic to the HTML5 EventSource format"
+  [request topic-name]
+  (let [offset (get (:headers request) "last-event-id" kafka/CONSUME_LATEST)
+        event-filter (get (:params request) "filter[event]" ".*")
+        consumer (kafka/sse-consumer topic-name offset)]
+    (kafka-consumer->sse-ch consumer (comp (filter #(name-matches? event-filter (.key %)))
+                                           (map consumer-record->sse)))))

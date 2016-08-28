@@ -5,7 +5,8 @@
             [ring.middleware.params :as params]
             [kafka-proxy.kafka-sse :as sse]
             [kafka-proxy.config :as config]
-            [manifold.stream :as s])
+            [manifold.stream :as s]
+            [kafka-proxy.kafka :as kafka])
   (:gen-class))
 
 (def ^:private TOPIC (config/env-or-default :sse-proxy-topic "simple-proxy-topic"))
@@ -13,8 +14,8 @@
 (defn sse-handler-using-defaults
   "Stream SSE data from the Kafka topic"
   [request]
-  (let [topic (or (get (:params request) "topic") TOPIC)
-        ch (sse/kafka->sse-ch request topic)]
+  (let [topic-name (get (:params request) "topic" TOPIC)
+        ch (sse/kafka->sse-ch request topic-name)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}
