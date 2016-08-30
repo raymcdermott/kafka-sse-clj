@@ -1,3 +1,9 @@
+#Purpose
+
+A minimal approach (three functions) to support **Server-Sent-Events** from **Kafka** using a `ring` compliant web server.
+
+The defaults can be tweaked by code or configuration.
+
 #Dependencies
 
 ```
@@ -10,19 +16,13 @@
 (:require [kafka-sse :as ks])
 ```
 
-#Purpose
-
-A minimal approach (three functions) to support Server-Sent events from Kafka using a `ring` compliant web server.
-
-The defaults can be tweaked by code or configuration.
-
-#Default-based approach (one function)
+#Default-based approach (single function)
 
 ```clojure
 kafka->sse-ch [request topic-name]
 ```
 
-The function returns a core.async channel that 
+The function returns a `core.async channel` that 
 - maps from the data on a Kafka channel to the HTML5 EventSource format
 - emits SSE comments every 5 seconds to maintain the connection
 
@@ -32,7 +32,7 @@ I have provided an example using `Aleph` and `Compojure`.
 
 #Message format
 
-The default output of the channel complies to the HTML5 `EventSource` spec and has these semantics:
+The default output of the channel complies to the [`HTML5 EventSource` specification](https://html.spec.whatwg.org/multipage/comms.html#the-eventsource-interface) and has these semantics:
 
 - id (item offset in kafka topic)
 - event (the message key as a string)
@@ -94,8 +94,8 @@ The second function is to enable the construction of a Kafka consumer for SSE pu
 I make SSE a clear distinction because Kafka has mature support for managing topic reading via a range of sophisticated options.
 
 We do not need that level of sophistication for SSE - we assume clients want to read from one of two places on the Kafka topic
-- EITHER the latest position or the head of the stream (the default)
-- OR a specific offset to enable consumption of any missing records during a network outage
+- **EITHER** the latest position or the head of the stream (the default)
+- **OR** a specific offset to enable consumption of any missing records during a network outage
 
 In the latter case, EventSource clients send the `Last-Event-Id` header.
 
@@ -127,7 +127,7 @@ The table shows the supported environment variables and defaults.
 
 #Testing
 
-working on it with embedded K / ZK
+TBD - working on it with embedded K / ZK
 
 #Example (using Aleph and Compojure)
 
@@ -156,4 +156,4 @@ working on it with embedded K / ZK
 
 Kafka consumers are generally complex and there are several Clojure libraries to provide access to all of those functions in idiomatic Clojure and from which I have stolen ideas and code.
  
-I like and recommend Franzy https://github.com/ymilky/franzy
+I like and recommend [Franzy](https://github.com/ymilky/franzy)
