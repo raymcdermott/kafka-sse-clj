@@ -1,3 +1,15 @@
+#Dependencies
+
+```
+[kafka-sse "0.1.0-SNAPSHOT"]
+```
+
+#Usage
+
+```
+(:require [kafka-sse :as ks])
+```
+
 #Purpose
 
 A minimal approach (three functions) to support Server-Sent events from Kafka using a `ring` compliant web server.
@@ -61,9 +73,12 @@ http://server-name/sse?filter[event]=customer,product.*
 
 ```clojure
 kafka-consumer->sse-ch [consumer transducer]
+kafka-consumer->sse-ch [consumer transducer keep-alive?]
 ```
 
-This function takes a Kafka consumer and transducer to assemble how the data on the channel is processed.
+This function takes a Kafka consumer and transducer to assemble how the data placed on the channel by the consumer is processed.
+
+In the second form you can pass a boolean to indicate whether a keep-alive channel is created. If true, the output of the transducer channel and the keep-alive channel are merged into a single channel. The merged channel is returned. This form is used for the default approach.
 
 ###Kafka Consumer
 
@@ -74,17 +89,17 @@ sse-consumer [topic offset options brokers]
 sse-consumer [topic offset options brokers marshallers]
 ```
 
-The second function is to enable the safe construction of a Kafka consumer for SSE purposes.
+The second function is to enable the construction of a Kafka consumer for SSE purposes.
 
-I make this a clear distinction because Kafka has mature support for maintaining positions in the stream for event stream processors.
+I make SSE a clear distinction because Kafka has mature support for managing topic reading via a range of sophisticated options.
 
-We do not need that degree of sophistication for SSE - we assume clients want to read from one of two places on the Kafka topic
-- the latest position (the default)
-- a specific offset to enable consumption of any missing records during a network outage
+We do not need that level of sophistication for SSE - we assume clients want to read from one of two places on the Kafka topic
+- EITHER the latest position or the head of the stream (the default)
+- OR a specific offset to enable consumption of any missing records during a network outage
 
 In the latter case, EventSource clients send the `Last-Event-Id` header.
 
-Providing the Kafka offset as the event id keeps it simple.
+Providing the Kafka offset as the event id in the output record keeps it simple.
 
 This consumer enables you to provide or as much or as little config as you need.
 
@@ -97,9 +112,10 @@ This consumer enables you to provide or as much or as little config as you need.
 
 This is the code used to create the default transducer. 
 
-Of course you can reuse one of the provided helper functions (`name-matches` and `consumer-record->sse`) or provide your own.
+Anything goes with your transducer: you can use one of the existing helper functions (`name-matches?` and `consumer-record->sse`) or provide your own.
 
 #Operations
+
 The table shows the supported environment variables and defaults.
 
 | Environment Variable | Meaning | Default |
@@ -108,7 +124,6 @@ The table shows the supported environment variables and defaults.
 | SSE_PROXY_POLL_TIMEOUT_MILLIS  | Max time in ms for each poll on Kafka | 100 |
 | SSE_PROXY_BUFFER_SIZE          | Size the async.core channel buffer | 512 |
 | SSE_PROXY_KEEP_ALIVE_MILLIS    | Interval in ms between emitting SSE comments | 5000 |
-
 
 #Testing
 
@@ -136,8 +151,6 @@ working on it with embedded K / ZK
       (GET "/kafka-sse" [] sse-handler-using-defaults)
       (route/not-found "No such page."))))
 ```
-
-
 
 #Other Kafka libraries for Clojure
 

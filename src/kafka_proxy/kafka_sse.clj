@@ -18,7 +18,7 @@
        "data: " (.value consumer-record) "\n\n"))
 
 (defn name-matches?
-  "Match name with the regexes in a comma seperated string"
+  "Match name with the regexes in a comma separated string"
   [regex-str name]
   (let [rxs (map #(re-pattern %) (str/split regex-str #","))
         found (filter #(re-find % name) rxs)]
@@ -38,8 +38,9 @@
      kafka-ch))
 
   ([consumer transducer keep-alive?]
-   "Ooptionally creates a channel to emit SSE comments to keep the connection open."
-   (if keep-alive?
+   "Optionally creates an additional channel to emit SSE comments to keep the connection open."
+   (if (not keep-alive?)
+     (kafka-consumer->sse-ch consumer transducer)
      (let [keep-alive-ch (chan)
            kafka-ch (kafka-consumer->sse-ch consumer transducer)]
 
@@ -48,8 +49,7 @@
            (>! keep-alive-ch ":\n")
            (recur)))
 
-       (async/merge [kafka-ch keep-alive-ch]))
-     (kafka-consumer->sse-ch consumer transducer))))
+       (async/merge [kafka-ch keep-alive-ch])))))
 
 (defn kafka->sse-ch
   "Creates a channel that filters and maps data from a Kafka topic to the HTML5 EventSource format"

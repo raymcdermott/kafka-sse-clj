@@ -1,4 +1,4 @@
-(defproject kafka-proxy "0.1.0-SNAPSHOT"
+(defproject kafka-sse "0.1.0-SNAPSHOT"
   :description "A HTTP Proxy for Kafka using Server-Sent-Events"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -12,7 +12,6 @@
                  [org.apache.kafka/kafka-clients "0.10.0.1"]]
   :dev-dependencies [[ymilky/franzy-embedded "0.0.1"]
                      [ymilky/travel-zoo "0.0.2"]]
-  ;  :main ^:skip-aot kafka-proxy.core
   :pedantic? :warn
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
