@@ -1,3 +1,9 @@
+#Purpose
+
+A minimal approach (three functions) to support Server-Sent events from Kafka using a `ring` compliant web server.
+
+The defaults can be tweaked by code or configuration.
+
 #Dependencies
 
 ```
@@ -10,16 +16,10 @@
 (:require [kafka-sse :as ks])
 ```
 
-#Purpose
-
-A minimal approach (three functions) to support Server-Sent events from Kafka using a `ring` compliant web server.
-
-The defaults can be tweaked by code or configuration.
-
 #Default-based approach (one function)
 
 ```clojure
-kafka->sse-ch [request topic-name]
+ks/kafka->sse-ch [request topic-name]
 ```
 
 The function returns a core.async channel that 
@@ -72,8 +72,8 @@ http://server-name/sse?filter[event]=customer,product.*
 ##Hand assembly
 
 ```clojure
-kafka-consumer->sse-ch [consumer transducer]
-kafka-consumer->sse-ch [consumer transducer keep-alive?]
+ks/kafka-consumer->sse-ch [consumer transducer]
+ks/kafka-consumer->sse-ch [consumer transducer keep-alive?]
 ```
 
 This function takes a Kafka consumer and transducer to assemble how the data placed on the channel by the consumer is processed.
@@ -83,10 +83,10 @@ In the second form you can pass a boolean to indicate whether a keep-alive chann
 ###Kafka Consumer
 
 ```clojure
-sse-consumer [topic offset]
-sse-consumer [topic offset options]
-sse-consumer [topic offset options brokers]
-sse-consumer [topic offset options brokers marshallers]
+ks/sse-consumer [topic offset]
+ks/sse-consumer [topic offset options]
+ks/sse-consumer [topic offset options brokers]
+ks/sse-consumer [topic offset options brokers marshallers]
 ```
 
 The second function is to enable the construction of a Kafka consumer for SSE purposes.
