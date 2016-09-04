@@ -127,7 +127,7 @@ The table shows the supported environment variables and defaults.
 
 #Testing
 
-TBD - working on it with embedded K / ZK
+Working on docker images...
 
 #Example (using Aleph and Compojure)
 
