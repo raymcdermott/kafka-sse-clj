@@ -8,10 +8,11 @@
                  [aleph "0.4.1"]
                  [compojure "1.5.1"]
                  [environ "1.1.0"]
-                 [org.apache.kafka/kafka_2.10 "0.10.0.1"]
-                 [org.apache.kafka/kafka-clients "0.10.0.1"]]
-  :dev-dependencies [[ymilky/franzy-embedded "0.0.1"]
-                     [ymilky/travel-zoo "0.0.2"]]
+                 [com.101tec/zkclient "0.9"]
+                 [org.apache.kafka/kafka_2.10 "0.10.0.1" :exclusions [org.slf4j/slf4j-log4j12 org.slf4j/slf4j-api org.scala-lang/scala-library]]
+                 [org.apache.kafka/kafka-clients "0.10.0.1" :exclusions [org.slf4j/slf4j-log4j12 org.slf4j/slf4j-api]]
+                 [org.apache.kafka/kafka-tools "0.10.0.1" :exclusions [org.slf4j/slf4j-log4j12 org.slf4j/slf4j-api]]]
   :pedantic? :warn
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}
+             :dev     {:dependencies [[ymilky/franzy-embedded "0.0.1"]]}})

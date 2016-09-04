@@ -1,20 +1,27 @@
 (ns kafka-proxy.web
   (:require [aleph.http :as http]
+            [environ.core :refer [env]]
             [compojure.route :as route]
             [compojure.core :as compojure :refer [GET]]
             [ring.middleware.params :as params]
             [kafka-proxy.kafka-sse :as sse]
             [kafka-proxy.config :as config]
             [manifold.stream :as s]
-            [kafka-proxy.kafka :as kafka])
+            [kafka-proxy.producer :as producer])
   (:gen-class))
 
 (def ^:private TOPIC (config/env-or-default :sse-proxy-topic "simple-proxy-topic"))
+
+(def ^:private kafka-brokers (if-let [env-brokers (env :kafka-proxy-broker-url)]
+                               {"bootstrap.servers" env-brokers}
+                               {"bootstrap.servers" "localhost:9092"}))
+
 
 (defn sse-handler-using-defaults
   "Stream SSE data from the Kafka topic"
   [request]
   (let [topic-name (get (:params request) "topic" TOPIC)
+        _ (producer/produce-constantly! kafka-brokers topic-name) ; not normal, just for demo - also produce!!
         ch (sse/kafka->sse-ch request topic-name)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
@@ -29,8 +36,4 @@
       (route/not-found "No such page."))))
 
 
-(comment
-
-  (def server (http/start-server handler {:port 10000}))
-
-  )
+;(defonce server (http/start-server handler {:port 10000}))

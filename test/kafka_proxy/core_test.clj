@@ -1,14 +1,10 @@
 (ns kafka-proxy.core-test
   (:require [clojure.test :refer :all]
             [environ.core :refer [env]]
-            [kafka-proxy.kafka-sse :refer :all])
+            [kafka-proxy.kafka-sse :refer [kafka->sse-ch]])
   (:import (org.apache.kafka.clients.producer KafkaProducer ProducerRecord)
-           (org.apache.kafka.common.serialization StringSerializer StringDeserializer)))
-
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
-
+           (org.apache.kafka.common.serialization StringSerializer StringDeserializer))
+  (:use [clojure.java.io :only (file)]))
 
 ;------------------------------------------------------------------------
 ; Short hand for experimentation in the REPL
@@ -16,20 +12,20 @@
 
 ; TODO write tests to check the basics
 
-(def ^:private local-brokers {"bootstrap.servers" "localhost:9092"})
-
-(def ^:private brokers-from-env (and (env :kafka-proxy-broker-url)
-                                     {"bootstrap.servers" (env :kafka-proxy-broker-url)}))
-
-(def ^:private kafka-brokers (or brokers-from-env local-brokers))
-
-(def ^:private marshalling-config {"key.serializer"     StringSerializer
-                                   "value.serializer"   StringSerializer
-                                   "key.deserializer"   StringDeserializer
-                                   "value.deserializer" StringDeserializer})
+(def ^:private embedded-broker {"host.name"         "localhost"
+                                "port"              "9091"
+                                "brokerid"          "0"
+                                "zookeeper.connect" "127.0.0.1:9090"
+                                "enable.zookeeper"  "false"
+                                "log.dir"           "/tmp/kafka-logs/"})
 
 
 (comment
+
+  (def ^:private marshalling-config {"key.serializer"     StringSerializer
+                                     "value.serializer"   StringSerializer
+                                     "key.deserializer"   StringDeserializer
+                                     "value.deserializer" StringDeserializer})
 
   ; TODO: env for the web server
   (def server (http/start-server handler {:port 10000}))
