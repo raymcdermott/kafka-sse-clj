@@ -1,10 +1,10 @@
 #Purpose
 
-A minimal approach (three functions) to support **Server-Sent-Events** from **Kafka** using a `ring` compliant web server.
+A minimal approach (either one or two functions) to support streaming [**SSE**](https://www.w3.org/TR/eventsource/) (Server-Sent-Events) from **Kafka**.
 
 The defaults can be tweaked by code or configuration.
 
-#Dependencies
+#Dependency
 
 ```
 [kafka-sse "0.1.0-SNAPSHOT"]
@@ -27,8 +27,8 @@ The function returns a `core.async channel` that
 - emits SSE comments every 5 seconds to maintain the connection
 
 You can use that channel to stream data out with any web server that supports core.async channels.
- 
-I have provided an example using `Aleph` and `Compojure`.
+
+I have provided an example using `Aleph` and `Compojure` at the end of the README and in the repo.
 
 #Message format
 
@@ -127,7 +127,7 @@ The table shows the supported environment variables and defaults.
 
 #Testing
 
-TBD - working on it with embedded K / ZK
+Working on docker images...
 
 #Example (using Aleph and Compojure)
 
