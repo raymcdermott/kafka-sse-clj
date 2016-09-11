@@ -9,6 +9,7 @@
                  [compojure "1.5.1"]
                  [environ "1.1.0"]
                  [com.101tec/zkclient "0.9"]
+                 [com.github.jkutner/env-keystore "0.1.2"]
                  [org.apache.kafka/kafka_2.10 "0.10.0.1" :exclusions [org.slf4j/slf4j-log4j12 org.slf4j/slf4j-api org.scala-lang/scala-library]]
                  [org.apache.kafka/kafka-clients "0.10.0.1" :exclusions [org.slf4j/slf4j-log4j12 org.slf4j/slf4j-api]]
                  [org.apache.kafka/kafka-tools "0.10.0.1" :exclusions [org.slf4j/slf4j-log4j12 org.slf4j/slf4j-api]]]
