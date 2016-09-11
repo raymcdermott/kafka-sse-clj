@@ -12,7 +12,7 @@
   [env-var-name]
   (if-let [env-var (env env-var-name)]
     env-var
-    (throw (RuntimeException (str "Must set environment variable: " env-var-name)))))
+    (throw (RuntimeException. (str "Must set environment variable: " env-var-name)))))
 
 (defn- as-properties
   [m]
