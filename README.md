@@ -1,19 +1,19 @@
 #Purpose
 
-A minimal approach (either one or two functions) to support streaming [**SSE**](https://www.w3.org/TR/eventsource/) (Server-Sent-Events) from **Kafka**.
+A minimal approach (either one function or the combination of two functions) to support streaming [**SSE**](https://www.w3.org/TR/eventsource/) (Server-Sent-Events) from **Kafka**.
 
-The defaults can be tweaked by code or configuration.
+The defaults can be tweaked in code and / or configuration.
 
 #Dependency
 
 ```
-[kafka-sse "0.1.0-SNAPSHOT"]
+[com.opengrail/kafka-sse-clj "0.1.0-SNAPSHOT"]
 ```
 
 #Usage
 
 ```
-(:require [kafka-sse :as ks])
+(:require [com.opengrail/kafka-sse-clj :as ks])
 ```
 
 #Default-based approach (single function)
@@ -156,4 +156,4 @@ Working on docker images...
 
 Kafka consumers are generally complex and there are several Clojure libraries to provide access to all of those functions in idiomatic Clojure and from which I have stolen ideas and code.
  
-I like and recommend [Franzy](https://github.com/ymilky/franzy)
+Take a look at [Franzy](https://github.com/ymilky/franzy)

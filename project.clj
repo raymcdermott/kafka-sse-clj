@@ -1,4 +1,4 @@
-(defproject kafka-sse "0.1.0-SNAPSHOT"
+(defproject com.opengrail/kafka-sse-clj "0.1.0-SNAPSHOT"
   :description "A HTTP Proxy for Kafka using Server-Sent-Events"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
