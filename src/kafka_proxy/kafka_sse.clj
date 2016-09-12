@@ -56,7 +56,7 @@
   ([request topic-name]
    (kafka->sse-ch request topic-name true))
   ([request topic-name keep-alive?]
-   (let [offset (get (:headers request) "last-event-id" kafka/CONSUME_LATEST)
+   (let [offset (get (:headers request) "last-event-id" config/CONSUME_LATEST)
          event-filter (get (:params request) "filter[event]" ".*")
          consumer (kafka/sse-consumer topic-name offset)
          transducer (comp (filter #(name-matches? event-filter (.key %)))

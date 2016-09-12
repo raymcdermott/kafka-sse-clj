@@ -1,5 +1,6 @@
 (ns kafka-proxy.kafka
-  (:require [environ.core :refer [env]])
+  (:require [environ.core :refer [env]]
+            [kafka-proxy.config :as config])
   (:import (org.apache.kafka.common.serialization StringSerializer StringDeserializer)
            (org.apache.kafka.clients.consumer KafkaConsumer)
            (org.apache.kafka.common TopicPartition)
@@ -22,21 +23,19 @@
 
 (def ^:private proxy-group (str "kafka-proxy-" (UUID/randomUUID)))
 
-(def CONSUME_LATEST -1)
-
 (defn sse-consumer
   "Obtain an appropriately positioned kafka consumer that is ready to be polled"
   ([topic offset]
-   (sse-consumer topic offset autocommit-config))
+   (sse-consumer topic offset kafka-brokers))
 
-  ([topic offset options]
-   (sse-consumer topic offset options kafka-brokers))
+  ([topic offset brokers]
+   (sse-consumer topic offset brokers autocommit-config))
 
-  ([topic offset options brokers]
-   (sse-consumer topic offset options brokers marshalling-config))
+  ([topic offset brokers options]
+   (sse-consumer topic offset brokers options marshalling-config))
 
-  ([topic offset options brokers marshallers]
-   {:pre [(or (= offset CONSUME_LATEST) (>= offset 0))]}
+  ([topic offset brokers options marshallers]
+   {:pre [(or (= offset config/CONSUME_LATEST) (>= offset 0))]}
    (let [consumer-group {"group.id" (str proxy-group "-" (rand))}
          merged-options (merge options autocommit-config consumer-group)
          consumer (KafkaConsumer. (merge brokers marshallers merged-options))]

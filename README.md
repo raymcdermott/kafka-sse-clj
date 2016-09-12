@@ -84,9 +84,9 @@ In the second form you can pass a boolean to indicate whether a keep-alive chann
 
 ```clojure
 sse-consumer [topic offset]
-sse-consumer [topic offset options]
-sse-consumer [topic offset options brokers]
-sse-consumer [topic offset options brokers marshallers]
+sse-consumer [topic offset brokers]
+sse-consumer [topic offset brokers options]
+sse-consumer [topic offset brokers options marshallers]
 ```
 
 The second function is to enable the construction of a Kafka consumer for SSE purposes.
