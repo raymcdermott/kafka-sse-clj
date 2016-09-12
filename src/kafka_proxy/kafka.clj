@@ -3,12 +3,13 @@
   (:import (org.apache.kafka.common.serialization StringSerializer StringDeserializer)
            (org.apache.kafka.clients.consumer KafkaConsumer)
            (org.apache.kafka.common TopicPartition)
-           (java.util UUID)))
+           (java.util UUID)
+           (org.apache.kafka.clients CommonClientConfigs)))
 
-(def ^:private local-brokers {"bootstrap.servers" "localhost:9092"})
+(def ^:private local-brokers {CommonClientConfigs/BOOTSTRAP_SERVERS_CONFIG "localhost:9092"})
 
 (def ^:private brokers-from-env (if-let [u (env :sse-proxy-kafka-broker-url)]
-                                  {"bootstrap.servers" u}))
+                                  {CommonClientConfigs/BOOTSTRAP_SERVERS_CONFIG u}))
 
 (def ^:private kafka-brokers (or brokers-from-env local-brokers))
 
