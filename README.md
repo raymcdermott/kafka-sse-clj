@@ -1,34 +1,48 @@
 #Purpose
 
-A minimal approach (either one function or the combination of two functions) to support streaming [**SSE**](https://www.w3.org/TR/eventsource/) (Server-Sent-Events) from **Kafka**.
+A minimal approach (either one function or the combination of two functions) to support streaming [**SSE**](https://www.w3.org/TR/eventsource/) (Server-Sent-Events) on any Kafka topic.
 
 The defaults can be tweaked in code and / or configuration.
 
 #Dependency
 
-```Clojure
+```clojure
 [com.opengrail/kafka-sse-clj "0.1.0-SNAPSHOT"]
 ```
 
 #Usage
 
-```Clojure
+```clojure
 (:require [com.opengrail/kafka-sse-clj :as ks])
 ```
 
 #Default-based approach (single function)
 
-```Clojure
-kafka->sse-ch [request topic-name]
+```clojure
+ks/kafka->sse-ch [topic-name]
 ```
 
-The function returns a `core.async channel` that 
-- maps from the data on a Kafka channel to the HTML5 EventSource format
-- emits SSE comments every 5 seconds to maintain the connection
+The function returns a `core.async channel` that maps from the data on a Kafka channel to the HTML5 EventSource format
+
+By default the function will consume the events 
+- from the point of connection
+- unfiltered
+- and emit SSE comments every 5 seconds to maintain the connection
 
 You can use that channel to stream data out with any web server that supports core.async channels.
 
 I have provided an example using `Aleph` and `Compojure` at the end of the README and in the repo.
+
+#Non-defaults
+
+You can provide additional arguments to alter the default behaviour.
+
+```clojure
+ks/kafka->sse-ch [topic-name offset event-filter-regex keep-alive?]
+ks/kafka->sse-ch [topic-name offset event-filter-regex]  ; default keep-alive? = true
+ks/kafka->sse-ch [topic-name offset]                     ; default regex = .*
+ks/kafka->sse-ch [topic-name]                            ; default offset = LATEST
+```
 
 #Message format
 
@@ -71,7 +85,7 @@ http://server-name/sse?filter[event]=customer,product.*
 
 ##Hand assembly
 
-```Clojure
+```clojure
 kafka-consumer->sse-ch [consumer transducer]
 kafka-consumer->sse-ch [consumer transducer keep-alive?]
 ```
@@ -82,7 +96,7 @@ In the second form you can pass a boolean to indicate whether a keep-alive chann
 
 ###Kafka Consumer
 
-```Clojure
+```clojure
 sse-consumer [topic offset]
 sse-consumer [topic offset brokers]
 sse-consumer [topic offset brokers options]
@@ -105,7 +119,7 @@ This consumer enables you to provide or as much or as little config as you need.
 
 ###core.async transducer
 
-```Clojure
+```clojure
 (kafka-consumer->sse-ch consumer (comp (filter #(name-matches? event-filter (.key %)))
                                            (map consumer-record->sse)))
 ```
