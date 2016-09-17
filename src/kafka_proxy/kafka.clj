@@ -25,24 +25,24 @@
 
 (defn sse-consumer
   "Obtain an appropriately positioned kafka consumer that is ready to be polled"
-  ([topic offset]
-   (sse-consumer topic offset kafka-brokers))
+  ([topic-name offset]
+   (sse-consumer topic-name offset kafka-brokers))
 
-  ([topic offset brokers]
-   (sse-consumer topic offset brokers autocommit-config))
+  ([topic-name offset brokers]
+   (sse-consumer topic-name offset brokers autocommit-config))
 
-  ([topic offset brokers options]
-   (sse-consumer topic offset brokers options marshalling-config))
+  ([topic-name offset brokers options]
+   (sse-consumer topic-name offset brokers options marshalling-config))
 
-  ([topic offset brokers options marshallers]
+  ([topic-name offset brokers options marshallers]
    {:pre [(or (= offset config/CONSUME_LATEST) (>= offset 0))]}
    (let [consumer-group {"group.id" (str proxy-group "-" (rand))}
          merged-options (merge options autocommit-config consumer-group)
          consumer (KafkaConsumer. (merge brokers marshallers merged-options))]
 
      (if (= offset CONSUME_LATEST)
-       (.subscribe consumer [topic])
-       (let [partition (TopicPartition. topic 0)]
+       (.subscribe consumer [topic-name])
+       (let [partition (TopicPartition. topic-name 0)]
          (.assign consumer [partition])
          (.seek consumer partition offset)))
 

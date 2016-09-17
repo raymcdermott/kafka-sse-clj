@@ -53,12 +53,10 @@
 
 (defn kafka->sse-ch
   "Creates a channel that filters and maps data from a Kafka topic to the HTML5 EventSource format"
-  ([request topic-name]
-   (kafka->sse-ch request topic-name true))
-  ([request topic-name keep-alive?]
-   (let [offset (get (:headers request) "last-event-id" config/CONSUME_LATEST)
-         event-filter (get (:params request) "filter[event]" ".*")
-         consumer (kafka/sse-consumer topic-name offset)
-         transducer (comp (filter #(name-matches? event-filter (.key %)))
+  ([topic-name offset event-filter-regex]
+   (kafka->sse-ch topic-name offset event-filter-regex true))
+  ([topic-name offset event-filter-regex keep-alive?]
+   (let [consumer (kafka/sse-consumer topic-name offset)
+         transducer (comp (filter #(name-matches? event-filter-regex (.key %)))
                           (map consumer-record->sse))]
      (kafka-consumer->sse-ch consumer transducer keep-alive?))))

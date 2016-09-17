@@ -6,19 +6,19 @@ The defaults can be tweaked in code and / or configuration.
 
 #Dependency
 
-```
+```Clojure
 [com.opengrail/kafka-sse-clj "0.1.0-SNAPSHOT"]
 ```
 
 #Usage
 
-```
+```Clojure
 (:require [com.opengrail/kafka-sse-clj :as ks])
 ```
 
 #Default-based approach (single function)
 
-```clojure
+```Clojure
 kafka->sse-ch [request topic-name]
 ```
 
@@ -71,7 +71,7 @@ http://server-name/sse?filter[event]=customer,product.*
 
 ##Hand assembly
 
-```clojure
+```Clojure
 kafka-consumer->sse-ch [consumer transducer]
 kafka-consumer->sse-ch [consumer transducer keep-alive?]
 ```
@@ -82,7 +82,7 @@ In the second form you can pass a boolean to indicate whether a keep-alive chann
 
 ###Kafka Consumer
 
-```clojure
+```Clojure
 sse-consumer [topic offset]
 sse-consumer [topic offset brokers]
 sse-consumer [topic offset brokers options]
@@ -105,7 +105,7 @@ This consumer enables you to provide or as much or as little config as you need.
 
 ###core.async transducer
 
-```clojure
+```Clojure
 (kafka-consumer->sse-ch consumer (comp (filter #(name-matches? event-filter (.key %)))
                                            (map consumer-record->sse)))
 ```

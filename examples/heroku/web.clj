@@ -13,10 +13,13 @@
 (defn sse-handler-using-heroku
   "Stream SSE data from the Kafka topic"
   [request]
-  (let [topic (get (:params request) "topic" TOPIC)
+  (let [topic-name (get (:params request) "topic" TOPIC)
         offset (get (:headers request) "last-event-id" config/CONSUME_LATEST)
-        event-filter (get (:params request) "filter[event]" ".*")
-        ch (heroku/heroku-kafka->sse-ch topic offset event-filter)]
+        event-filter-regex (get (:params request) "filter[event]" ".*")
+
+        _ (producer/produce-constantly! kafka-brokers topic-name) ; not normal, just for demo - also produce!!
+
+        ch (heroku/heroku-kafka->sse-ch topic-name offset event-filter-regex)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}

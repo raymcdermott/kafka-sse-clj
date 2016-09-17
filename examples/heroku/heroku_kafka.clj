@@ -43,9 +43,9 @@
       (as-properties (merge broker-config ssl-config security-config)))))
 
 (defn heroku-kafka->sse-ch
-  [topic offset event-filter]
+  [topic-name offset event-filter]
   (let [heroku-brokers (kafka-connection-config)
-        consumer (kafka/sse-consumer topic offset heroku-brokers)
+        consumer (kafka/sse-consumer topic-name offset heroku-brokers)
         transducer (comp (filter #(sse/name-matches? event-filter (.key %)))
                          (map sse/consumer-record->sse))]
     (sse/kafka-consumer->sse-ch consumer transducer true)))
