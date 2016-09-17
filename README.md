@@ -68,6 +68,8 @@ Of course, to use these defaults, messages placed on the Kafka topic must confor
 
 #Filtering
 
+Example (in hands of dev)
+
 The channel is unfiltered by default but supports a request parameter `filter[event]` to filter responses by matching on event name:
 
 ```
@@ -152,12 +154,13 @@ Working on docker images...
   "Stream SSE data from the Kafka topic"
   [request]
   (let [topic-name (get (:params request) "topic" TOPIC)
-        ch (sse/kafka->sse-ch request topic-name)]
+        offset (get (:headers request) "last-event-id" config/CONSUME_LATEST)
+        event-filter-regex (get (:params request) "filter[event]" ".*")
+        ch (ks/kafka->sse-ch topic-name offset event-filter-regex)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}
      :body    (s/->source ch)}))
-
 
 (def handler
   (params/wrap-params

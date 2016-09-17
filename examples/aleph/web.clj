@@ -4,7 +4,7 @@
             [compojure.route :as route]
             [compojure.core :as compojure :refer [GET]]
             [ring.middleware.params :as params]
-            [kafka-proxy.kafka-sse :as sse]
+            [kafka-proxy.kafka-sse :as ks]
             [kafka-proxy.config :as config]
             [manifold.stream :as s]
             [kafka-proxy.producer :as producer])
@@ -23,7 +23,7 @@
         offset (get (:headers request) "last-event-id" config/CONSUME_LATEST)
         event-filter-regex (get (:params request) "filter[event]" ".*")
         _ (producer/produce-constantly! kafka-brokers topic-name) ; not normal, just for demo - also produce!!
-        ch (sse/kafka->sse-ch topic-name offset event-filter-regex)]
+        ch (ks/kafka->sse-ch topic-name offset event-filter-regex)]
     {:status  200
      :headers {"Content-Type"  "text/event-stream;charset=UTF-8"
                "Cache-Control" "no-cache"}

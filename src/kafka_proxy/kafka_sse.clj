@@ -53,6 +53,10 @@
 
 (defn kafka->sse-ch
   "Creates a channel that filters and maps data from a Kafka topic to the HTML5 EventSource format"
+  ([topic-name]
+   (kafka->sse-ch topic-name config/CONSUME_LATEST))
+  ([topic-name offset]
+   (kafka->sse-ch topic-name offset ".*"))
   ([topic-name offset event-filter-regex]
    (kafka->sse-ch topic-name offset event-filter-regex true))
   ([topic-name offset event-filter-regex keep-alive?]
